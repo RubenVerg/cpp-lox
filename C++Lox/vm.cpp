@@ -25,12 +25,18 @@ InterpretResult VM::run() {
 				break;
 			}
 			case OpCode::Negate:
-				push(-pop_unsafe());
+				auto value = pop_unsafe().asNumber();
+				if (!value) {
+					runtimeError("Operand must be a number.");
+					return;
+				}
+				push(Value(-value.value()));
 				break;
-			case OpCode::Add: binaryOperator([](Value a, Value b) { return a + b; }); break;
-			case OpCode::Subtract: binaryOperator([](Value a, Value b) { return a - b; }); break;
-			case OpCode::Multiply: binaryOperator([](Value a, Value b) { return a * b; }); break;
-			case OpCode::Divide: binaryOperator([](Value a, Value b) { return a / b; }); break;;
+				// TODO support the runtime errors "thrown"
+			case OpCode::Add: binaryOperator([](double a, double b) { return a + b; }); break;
+			case OpCode::Subtract: binaryOperator([](double a, double b) { return a - b; }); break;
+			case OpCode::Multiply: binaryOperator([](double a, double b) { return a * b; }); break;
+			case OpCode::Divide: binaryOperator([](double a, double b) { return a / b; }); break;;
 			case OpCode::Return:
 			{
 				auto top = pop();

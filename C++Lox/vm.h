@@ -35,6 +35,10 @@ struct VM {
 		return pop().value();
 	}
 
+	Value peek(size_t distance) {
+		return stack[stack.size() - 1 - distance];
+	}
+
 	private:
 	uint8_t readByte() {
 		return chunk->code[ip++];
@@ -49,10 +53,27 @@ struct VM {
 	}
 
 	template <typename F>
-	void binaryOperator(F f) {
-		auto a = pop_unsafe();
-		auto b = pop_unsafe();
-		push(f(a, b));
+	InterpretResult binaryOperator(F f) {
+		auto b = pop_unsafe().asNumber();
+		auto a = pop_unsafe().asNumber();
+		if (!a || !b) {
+			runtimeError("Operands must be numbers.");
+			return InterpretResult::RuntimeError;
+		}
+		push(f(a.value(), b.value()));
+		return InterpretResult::Ok;
+	}
+
+	void runtimeError(const std::string& format, ...) {
+		auto str = format.c_str();
+		va_list args;
+		va_start(args, str);
+		vfprintf(stderr, str, args);
+		va_end(args);
+		std::cerr << std::endl;
+
+		std::cerr << "[ line " << chunk->lines[ip] << "] in script" << std::endl;
+		stack.clear();
 	}
 
 	InterpretResult run();

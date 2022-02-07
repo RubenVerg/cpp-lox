@@ -1,10 +1,16 @@
 #pragma once
 
+#ifdef _DEBUG
 constexpr auto debug_printCode = true;
 constexpr auto debug_traceExecution = true;
+#else
+constexpr auto debug_printCode = false;
+constexpr auto debug_traceExecution = false;
+#endif
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdarg>
 #include <vector>
 #include <array>
 #include <string>
@@ -15,6 +21,7 @@ constexpr auto debug_traceExecution = true;
 #include <limits>
 #include <functional>
 #include <unordered_map>
+#include <variant>
 
 #undef EOF
 

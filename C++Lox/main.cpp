@@ -26,12 +26,17 @@ int main(int argc, const char* argv[]) {
 static void repl() {
 	VM vm{};
 
-	std::string line = "";
+	char line[1024];
 	while (true) {
 		std::cout << "> ";
-		std::cin >> line;
+		if (!fgets(line, sizeof(line), stdin)) {
+			std::cout << std::endl;
+			break;
+		}
 
-		vm.interpret(line);
+		std::string str{ line };
+
+		vm.interpret(str);
 	}
 }
 
