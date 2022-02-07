@@ -34,4 +34,26 @@ struct VM {
 	Value pop_unsafe() {
 		return pop().value();
 	}
+
+	private:
+	uint8_t readByte() {
+		return chunk->code[ip++];
+	}
+
+	OpCode readOpCode() {
+		return asOpCode(readByte());
+	}
+
+	Value readConstant() {
+		return chunk->constants[readByte()];
+	}
+
+	template <typename F>
+	void binaryOperator(F f) {
+		auto a = pop_unsafe();
+		auto b = pop_unsafe();
+		push(f(a, b));
+	}
+
+	InterpretResult run();
 };

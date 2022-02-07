@@ -1,76 +1,102 @@
 #include "scanner.h"
 
-static bool isAtEnd(Scanner& scanner) {
-    return scanner.current >= scanner.str.size();
+Token::Token(Scanner& scanner, TokenType t) : type{ t } {
+	text = scanner.str.substr(scanner.start, scanner.current - scanner.start);
+	line = scanner.line;
 }
 
-static Token makeToken(Scanner& scanner, TokenType type) {
-    return Token(type, scanner.str.substr(scanner.start, scanner.current - scanner.start), scanner.line);
+Token Scanner::string() {
+	while (peek() != '"' && !isAtEnd()) {
+		if (peek() == '\n') line++;
+		advance();
+	}
+
+	if (isAtEnd()) return errorToken("Unterminated string literal.");
+
+	advance();
+	return makeToken(TokenType::String);
 }
 
-static Token errorToken(Scanner& scanner, const std::string& message) {
-    return Token(TokenType::Error, message, scanner.line);
+Token Scanner::number() {
+	while (isDigit(peek())) advance();
+
+	if (peek() == '.' && isDigit(peekNext())) {
+		advance();
+		while (isDigit(peek())) advance();
+	}
+
+	return makeToken(TokenType::Number);
 }
 
-static char advance(Scanner& scanner) {
-    return scanner.str[scanner.current++];
+TokenType Scanner::identifierType() {
+	switch (str[start]) {
+		case 'a': return checkKeyword(1, "nd",    TokenType::And);
+		case 'c': return checkKeyword(1, "lass",  TokenType::Class);
+		case 'e': return checkKeyword(1, "lse",   TokenType::Else);
+		case 'i': return checkKeyword(1, "f",     TokenType::If);
+		case 'n': return checkKeyword(1, "il",    TokenType::Nil);
+		case 'o': return checkKeyword(1, "r",     TokenType::Or);
+		case 'p': return checkKeyword(1, "rint",  TokenType::Print);
+		case 'r': return checkKeyword(1, "eturn", TokenType::Return);
+		case 's': return checkKeyword(1, "uper",  TokenType::Super);
+		case 'v': return checkKeyword(1, "ar",    TokenType::Var);
+		case 'w': return checkKeyword(1, "hile",  TokenType::While);
+		case 'f':
+			if (current - start > 1) {
+				switch (str[start + 1]) {
+					case 'a': return checkKeyword(2, "lse", TokenType::False);
+					case 'o': return checkKeyword(2, "r",   TokenType::For);
+					case 'u': return checkKeyword(2, "n",   TokenType::Fun);
+					default: return TokenType::Identifier;
+				}
+			} else return TokenType::Identifier;
+		case 't':
+			if (current - start > 1) {
+				switch (str[start + 1]) {
+					case 'h': return checkKeyword(2, "is", TokenType::This);
+					case 'r': return checkKeyword(2, "ue", TokenType::True);
+					default: return TokenType::Identifier;
+				}
+			} else return TokenType::Identifier;
+		default: return TokenType::Identifier;
+	}
 }
 
-static bool match(Scanner& scanner, char expected) {
-    if (isAtEnd(scanner)) return false;
-    if (scanner.str[scanner.current] != expected) return false;
-    scanner.current++;
-    return true;
-}
-
-static char peek(Scanner& scanner) {
-    return scanner.str[scanner.current];
-}
-
-static bool skipWhitespace(Scanner& scanner) {
-    while (true) {
-        auto c = peek(scanner);
-        switch (c) {
-        case ' ':
-        case '\r':
-        case '\t':
-            advance(scanner);
-            break;
-        case '\n':
-            scanner.line+
-        default:
-            return;
-        }
-    }
+Token Scanner::identifier() {
+	while (isAlphaNumeric(peek())) advance();
+	return makeToken(identifierType());
 }
 
 Token Scanner::scanToken() {
-    auto scanner = *this;
+	skipWhitespace();
 
-    skipWhitespace(scanner);
+	start = current;
 
-    start = current;
-    
-    if (isAtEnd(scanner)) return makeToken(scanner, TokenType::EOF);
+	if (isAtEnd()) return makeToken(TokenType::EOF);
 
-    auto c = advance(scanner);
-    switch (c) {
-    case '(': return makeToken(scanner, TokenType::LeftParen);
-    case ')': return makeToken(scanner, TokenType::RightBrace);
-    case '{': return makeToken(scanner, TokenType::LeftBrace);
-    case '}': return makeToken(scanner, TokenType::RightBrace);
-    case ';': return makeToken(scanner, TokenType::Semicolon);
-    case ',': return makeToken(scanner, TokenType::Comma);
-    case '.': return makeToken(scanner, TokenType::Dot);
-    case '+': return makeToken(scanner, TokenType::Plus);
-    case '-': return makeToken(scanner, TokenType::Minus);
-    case '*': return makeToken(scanner, TokenType::Star);
-    case '/': return makeToken(scanner, TokenType::Slash);
-    case '!': return makeToken(scanner, match(scanner, '=') ? TokenType::BangEqual : TokenType::Bang);
-    case '=': return makeToken(scanner, match(scanner, '=') ? TokenType::EqualEqual : TokenType::Equal);
-    case '>': return makeToken(scanner, match(scanner, '=') ? TokenType::GreaterEqual : TokenType::Greater);
-    case '<': return makeToken(scanner, match(scanner, '=') ? TokenType::LessEqual : TokenType::Less);
-    }
+	auto c = advance();
 
-    return errorToken(*this, "Unexpected character.");
+	if (isAlpha(c)) return identifier();
+	if (isDigit(c)) return number();
+
+	switch (c) {
+		case '(': return makeToken(TokenType::LeftParen);
+		case ')': return makeToken(TokenType::RightBrace);
+		case '{': return makeToken(TokenType::LeftBrace);
+		case '}': return makeToken(TokenType::RightBrace);
+		case ';': return makeToken(TokenType::Semicolon);
+		case ',': return makeToken(TokenType::Comma);
+		case '.': return makeToken(TokenType::Dot);
+		case '+': return makeToken(TokenType::Plus);
+		case '-': return makeToken(TokenType::Minus);
+		case '*': return makeToken(TokenType::Star);
+		case '/': return makeToken(TokenType::Slash);
+		case '!': return makeToken(match('=') ? TokenType::BangEqual : TokenType::Bang);
+		case '=': return makeToken(match('=') ? TokenType::EqualEqual : TokenType::Equal);
+		case '>': return makeToken(match('=') ? TokenType::GreaterEqual : TokenType::Greater);
+		case '<': return makeToken(match('=') ? TokenType::LessEqual : TokenType::Less);
+		case '"': return string();
+	}
+
+	return errorToken("Unexpected character.");
 }

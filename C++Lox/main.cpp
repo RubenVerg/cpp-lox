@@ -4,6 +4,9 @@
 #include "debug.h"
 #include "vm.h"
 
+static void repl();
+static void runFile(std::string path);
+
 int main(int argc, const char* argv[]) {
 	auto args = parseArgs(argc, argv);
 

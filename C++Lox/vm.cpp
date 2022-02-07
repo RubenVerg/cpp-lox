@@ -3,52 +3,37 @@
 #include "debug.h"
 #include "compiler.h"
 
-static uint8_t readByte(VM& vm) {
-	return vm.chunk->code[vm.ip++];
-}
-
-static Value readConstant(VM& vm) {
-	return vm.chunk->constants[readByte(vm)];
-}
-
-template <typename F>
-static void binaryOperator(F f, VM& vm) {
-	auto a = vm.pop_unsafe();
-	auto b = vm.pop_unsafe();
-	vm.push(f(a, b));
-}
-
-static InterpretResult run(VM& vm) {
+InterpretResult VM::run() {
 	while (true) {
 		if (debug_traceExecution) {
 			std::cout << "          ";
-			for (auto element : vm.stack) {
+			for (auto element : stack) {
 				std::cout << "[ ";
 				printValue(element);
 				std::cout << " ]";
 			}
 			std::cout << std::endl;
-			disassembleInstruction(*vm.chunk, vm.ip);
+			disassembleInstruction(*chunk, ip);
 		}
 
-		auto instruction = asOpCode(readByte(vm));
+		auto instruction = readOpCode();
 		switch (instruction) {
 			case OpCode::Constant:
 			{
-				auto constant = readConstant(vm);
-				vm.push(constant);
+				auto constant = readConstant();
+				push(constant);
 				break;
 			}
 			case OpCode::Negate:
-				vm.push(-vm.pop_unsafe());
+				push(-pop_unsafe());
 				break;
-			case OpCode::Add: binaryOperator([](Value a, Value b) { return a + b; }, vm); break;
-			case OpCode::Subtract: binaryOperator([](Value a, Value b) { return a - b; }, vm); break;
-			case OpCode::Multiply: binaryOperator([](Value a, Value b) { return a * b; }, vm); break;
-			case OpCode::Divide: binaryOperator([](Value a, Value b) { return a / b; }, vm); break;;
+			case OpCode::Add: binaryOperator([](Value a, Value b) { return a + b; }); break;
+			case OpCode::Subtract: binaryOperator([](Value a, Value b) { return a - b; }); break;
+			case OpCode::Multiply: binaryOperator([](Value a, Value b) { return a * b; }); break;
+			case OpCode::Divide: binaryOperator([](Value a, Value b) { return a / b; }); break;;
 			case OpCode::Return:
 			{
-				auto top = vm.pop();
+				auto top = pop();
 				if (top) {
 					printValue(top.value());
 					std::cout << std::endl;
@@ -66,7 +51,16 @@ static InterpretResult run(VM& vm) {
 }
 
 InterpretResult VM::interpret(std::string& source) {
-	compile(source);
-	return InterpretResult::Ok;
-	// return run(*this);
+	Compiler compiler{ source };
+
+	auto newChunk = compiler.compile();
+
+	if (!newChunk) {
+		return InterpretResult::CompileTimeError;
+	}
+
+	chunk = &newChunk.value();
+	ip = 0;
+
+	return run();
 }

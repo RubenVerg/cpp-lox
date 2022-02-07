@@ -43,8 +43,8 @@ struct Chunk {
 		lines.push_back(line);
 	}
 
-	uint8_t addConstant(Value value) {
+	size_t addConstant(Value value) {
 		constants.push_back(value);
-		return static_cast<uint8_t>(constants.size() - 1);
+		return constants.size() - 1;
 	}
 };
