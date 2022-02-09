@@ -75,6 +75,19 @@ bool Compiler::match(TokenType type) {
 	return true;
 }
 
+void Compiler::beginScope() {
+	scopeDepth++;
+}
+
+void Compiler::endScope() {
+	scopeDepth--;
+
+	while (locals.size() && locals.back().depth > scopeDepth) {
+		emitOpCode(OpCode::Drop);
+		locals.pop_back();
+	}
+}
+
 void Compiler::parsePrecedence(Precedence precedence) {
 	advance();
 	auto prefixRule = rule(parser.previous.type).prefix;
@@ -101,24 +114,24 @@ void Compiler::expression() {
 	parsePrecedence(Precedence::Assignment);
 }
 
-void Compiler::number(bool canAssign) {
+void Compiler::number(bool) {
 	auto value = read_cast<double>(parser.previous.text);
 	emitConstant(value);
 }
 
-void Compiler::string(bool canAssign) {
+void Compiler::string(bool) {
 	auto value = parser.previous.text.substr(1, parser.previous.text.size() - 2);
 	// lives forever, I think.
 	auto string = std::make_shared<ObjString>(value);
 	emitConstant(Value{ string });
 }
 
-void Compiler::grouping(bool canAssign) {
+void Compiler::grouping(bool) {
 	expression();
 	consume(TokenType::RightParen, "Expected ')' after expression.");
 }
 
-void Compiler::unary(bool canAssign) {
+void Compiler::unary(bool) {
 	auto operatorType = parser.previous.type;
 
 	parsePrecedence(Precedence::Unary);
@@ -131,7 +144,7 @@ void Compiler::unary(bool canAssign) {
 	}
 }
 
-void Compiler::binary(bool canAssign) {
+void Compiler::binary(bool) {
 	auto operatorType = parser.previous.type;
 	auto rule = Compiler::rule(operatorType);
 
@@ -153,7 +166,7 @@ void Compiler::binary(bool canAssign) {
 	}
 }
 
-void Compiler::literal(bool canAssign) {
+void Compiler::literal(bool) {
 	switch (parser.previous.type) {
 		case TokenType::False: emitOpCode(OpCode::False); break;
 		case TokenType::True: emitOpCode(OpCode::True); break;
@@ -168,13 +181,62 @@ void Compiler::variable(bool canAssign) {
 }
 
 void Compiler::namedVariable(Token& name, bool canAssign) {
-	auto constant = identifierConstant(name);
+	OpCode getOp, setOp;
+	auto argMaybe = resolveLocal(name);
+	uint8_t arg;
+	if (argMaybe) {
+		arg = static_cast<uint8_t>(argMaybe.value());
+		getOp = OpCode::GetLocal;
+		setOp = OpCode::SetLocal;
+	} else {
+		arg = identifierConstant(name);
+		getOp = OpCode::GetGlobal;
+		setOp = OpCode::SetGlobal;
+	}
+
 	if (canAssign && match(TokenType::Equal)) {
 		expression();
-		emitOpCodeAndByte(OpCode::SetGlobal, constant);
+		emitOpCodeAndByte(setOp, arg);
 	} else {
-		emitOpCodeAndByte(OpCode::GetGlobal, constant);
+		emitOpCodeAndByte(getOp, arg);
 	}
+}
+
+void Compiler::declareVariable() {
+	if (scopeDepth == 0) return;
+
+	auto name = parser.previous;
+	for (auto i = locals.size() - 1; i != std::numeric_limits<size_t>::max(); i--) {
+		auto local = locals[i];
+		if (local.depth != -1 && local.depth < scopeDepth) break;
+
+		if (name.text == local.name.text) {
+			error("A variable with this name is already in scope.");
+		}
+	}
+	addLocal(name);
+}
+
+void Compiler::addLocal(Token& name) {
+	if (locals.size() > std::numeric_limits<uint8_t>::max()) {
+		error("Too many local variables.");
+		return;
+	}
+
+	locals.push_back(Local{ name, -1 });
+}
+
+std::optional<size_t> Compiler::resolveLocal(Token& name) {
+	for (auto i = locals.size() - 1; i != std::numeric_limits<size_t>::max(); i--) {
+		auto local = locals[i];
+		if (name.text == local.name.text) {
+			if (local.depth == -1) {
+				error("Can't read local variable in its own initializer.");
+			}
+			return i;
+		}
+	}
+	return std::nullopt;
 }
 
 void Compiler::synchronize() {
@@ -213,6 +275,10 @@ void Compiler::varDeclaration() {
 
 uint8_t Compiler::parseVariable(const std::string& message) {
 	consume(TokenType::Identifier, message);
+
+	declareVariable();
+	if (scopeDepth > 0) return 0;
+
 	return identifierConstant(parser.previous);
 }
 
@@ -222,7 +288,16 @@ uint8_t Compiler::identifierConstant(Token& name) {
 }
 
 void Compiler::defineVariable(uint8_t global) {
+	if (scopeDepth > 0) {
+		markInitialized();
+		return;
+	}
+
 	emitOpCodeAndByte(OpCode::DefineGlobal, global);
+}
+
+void Compiler::markInitialized() {
+	locals.back().depth = scopeDepth;
 }
 
 void Compiler::declaration() {
@@ -238,6 +313,10 @@ void Compiler::declaration() {
 void Compiler::statement() {
 	if (match(TokenType::Print)) {
 		printStatement();
+	} else if (match(TokenType::LeftBrace)) {
+		beginScope();
+		block();
+		endScope();
 	} else {
 		expressionStatement();
 	}
@@ -255,6 +334,14 @@ void Compiler::expressionStatement() {
 	emitOpCode(OpCode::Drop);
 }
 
+void Compiler::block() {
+	while (!check(TokenType::RightBrace) && !check(TokenType::EOF)) {
+		declaration();
+	}
+
+	consume(TokenType::RightBrace, "Expected '}' after block.");
+}
+
 std::optional<Chunk> Compiler::compile() {
 	Chunk chunk{};
 	currentChunk = chunk;
@@ -270,7 +357,7 @@ std::optional<Chunk> Compiler::compile() {
 	if (parser.hadError) {
 		return std::nullopt;
 	} else {
-		return std::make_optional(currentChunk);
+		return currentChunk;
 	}
 }
 

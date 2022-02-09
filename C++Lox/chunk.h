@@ -23,6 +23,8 @@ enum class OpCode : uint8_t {
 	DefineGlobal,
 	GetGlobal,
 	SetGlobal,
+	GetLocal,
+	SetLocal,
 
 	OPCODE_LEN
 };

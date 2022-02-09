@@ -10,7 +10,7 @@ bool Value::asBoolUnsafe() {
 }
 
 std::optional<bool> Value::asBool() {
-	if (isBool()) return std::make_optional(asBoolUnsafe());
+	if (isBool()) return asBoolUnsafe();
 	return std::nullopt;
 }
 
@@ -23,7 +23,7 @@ double Value::asNumberUnsafe() {
 }
 
 std::optional<double> Value::asNumber() {
-	if (isNumber()) return std::make_optional(asNumberUnsafe());
+	if (isNumber()) return asNumberUnsafe();
 	return std::nullopt;
 }
 
@@ -36,7 +36,7 @@ std::shared_ptr<Obj> Value::asObjUnsafe() {
 }
 
 std::optional<std::shared_ptr<Obj>> Value::asObj() {
-	if (isObj()) return std::make_optional(asObjUnsafe());
+	if (isObj()) return asObjUnsafe();
 	return std::nullopt;
 }
 

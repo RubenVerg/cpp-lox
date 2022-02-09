@@ -131,6 +131,18 @@ InterpretResult VM::run() {
 				globals[name] = peek(0);
 				break;
 			}
+			case OpCode::GetLocal:
+			{
+				auto slot = readByte();
+				push(stack[slot]);
+				break;
+			}
+			case OpCode::SetLocal:
+			{
+				auto slot = readByte();
+				stack[slot] = peek(0);
+				break;
+			}
 			case OpCode::Print:
 			{
 				pop_unsafe().print();
@@ -180,7 +192,7 @@ std::optional<Value> VM::pop() {
 	} else {
 		auto result = stack.back();
 		stack.pop_back();
-		return std::make_optional(result);
+		return result;
 	}
 }
 

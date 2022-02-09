@@ -47,6 +47,11 @@ struct ParseRule {
 	ParseRule(ParseFn p, ParseFn i, Precedence pr) : precedence{ pr }, infix{ i }, prefix{ p } {}
 };
 
+struct Local {
+	Token name;
+	int depth;
+};
+
 struct Compiler {
 	static ParseRule rule(TokenType type);
 
@@ -54,6 +59,8 @@ struct Compiler {
 	Scanner scanner{ source };
 	Parser parser{};
 	Chunk currentChunk;
+	std::vector<Local> locals{};
+	int scopeDepth{ 0 };
 
 	std::optional<Chunk> compile();
 
@@ -82,6 +89,9 @@ struct Compiler {
 	bool check(TokenType type);
 	bool match(TokenType type);
 
+	void beginScope();
+	void endScope();
+
 	void parsePrecedence(Precedence precedence);
 
 	void expression();
@@ -95,9 +105,13 @@ struct Compiler {
 
 	void variable(bool canAssign);
 	void namedVariable(Token& name, bool canAssign);
+	void declareVariable();
+	void addLocal(Token& name);
+	std::optional<size_t> resolveLocal(Token& name);
 
 	void printStatement();
 	void expressionStatement();
+	void block();
 
 	void statement();
 
@@ -105,6 +119,7 @@ struct Compiler {
 	uint8_t parseVariable(const std::string& message);
 	uint8_t identifierConstant(Token& name);
 	void defineVariable(uint8_t global);
+	void markInitialized();
 
 	void declaration();
 

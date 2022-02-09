@@ -20,6 +20,13 @@ static size_t constantInstruction(std::string name, Chunk& chunk, size_t index) 
 	return index + 2;
 }
 
+static size_t byteInstruction(std::string name, Chunk& chunk, size_t index) {
+	auto slot = chunk.code[index + 1];
+	printf("%-16s %4d", name.c_str(), slot);
+	std::cout << std::endl;
+	return index + 2;
+}
+
 size_t disassembleInstruction(Chunk& chunk, size_t index) {
 	printf("%04d ", int(index));
 
@@ -74,6 +81,10 @@ size_t disassembleInstruction(Chunk& chunk, size_t index) {
 				return constantInstruction("get global", chunk, index);
 			case OpCode::SetGlobal:
 				return constantInstruction("set global", chunk, index);
+			case OpCode::GetLocal:
+				return byteInstruction("get local", chunk, index);
+			case OpCode::SetLocal:
+				return byteInstruction("set local", chunk, index);
 			default:
 				unreachable();
 				return 0;
