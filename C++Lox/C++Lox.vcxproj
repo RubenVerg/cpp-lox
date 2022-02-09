@@ -118,7 +118,6 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <TreatWarningAsError>false</TreatWarningAsError>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <BrowseInformation>true</BrowseInformation>
     </ClCompile>
@@ -138,6 +137,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -150,6 +150,7 @@
     <ClCompile Include="compiler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="debug.cpp" />
+    <ClCompile Include="rules.cpp" />
     <ClCompile Include="scanner.cpp" />
     <ClCompile Include="vm.cpp" />
     <ClCompile Include="value.cpp" />
@@ -159,9 +160,13 @@
     <ClInclude Include="chunk.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="compiler.h" />
+    <ClInclude Include="object.h" />
     <ClInclude Include="scanner.h" />
     <ClInclude Include="vm.h" />
     <ClInclude Include="value.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test.lox" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -81,7 +81,7 @@ Token Scanner::scanToken() {
 
 	switch (c) {
 		case '(': return makeToken(TokenType::LeftParen);
-		case ')': return makeToken(TokenType::RightBrace);
+		case ')': return makeToken(TokenType::RightParen);
 		case '{': return makeToken(TokenType::LeftBrace);
 		case '}': return makeToken(TokenType::RightBrace);
 		case ';': return makeToken(TokenType::Semicolon);

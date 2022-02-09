@@ -2,6 +2,14 @@
 #include "vm.h"
 #include "debug.h"
 #include "compiler.h"
+#include "object.h"
+
+#define ReturnIfError(value) do {\
+  auto result = value;\
+  if (result != InterpretResult::Ok) {\
+    return result;\
+	}\
+} while (false)
 
 InterpretResult VM::run() {
 	while (true) {
@@ -9,11 +17,11 @@ InterpretResult VM::run() {
 			std::cout << "          ";
 			for (auto element : stack) {
 				std::cout << "[ ";
-				printValue(element);
+				element.print();
 				std::cout << " ]";
 			}
 			std::cout << std::endl;
-			disassembleInstruction(*chunk, ip);
+			disassembleInstruction(chunk, ip);
 		}
 
 		auto instruction = readOpCode();
@@ -24,39 +32,107 @@ InterpretResult VM::run() {
 				push(constant);
 				break;
 			}
+			case OpCode::Nil:
+				push(Value{});
+				break;
+			case OpCode::True:
+				push(Value{ true });
+				break;
+			case OpCode::False:
+				push(Value{ false });
+				break;
+			case OpCode::Not:
+				push(Value{ !pop_unsafe().castToBool() });
+				break;
 			case OpCode::Negate:
+			{
 				auto value = pop_unsafe().asNumber();
 				if (!value) {
 					runtimeError("Operand must be a number.");
-					return;
+					return InterpretResult::RuntimeError;
 				}
-				push(Value(-value.value()));
+				push(Value{ -value.value() });
 				break;
-				// TODO support the runtime errors "thrown"
-			case OpCode::Add: binaryOperator([](double a, double b) { return a + b; }); break;
-			case OpCode::Subtract: binaryOperator([](double a, double b) { return a - b; }); break;
-			case OpCode::Multiply: binaryOperator([](double a, double b) { return a * b; }); break;
-			case OpCode::Divide: binaryOperator([](double a, double b) { return a / b; }); break;;
-			case OpCode::Return:
+			}
+			case OpCode::Add:
 			{
-				auto top = pop();
-				if (top) {
-					printValue(top.value());
-					std::cout << std::endl;
+				if (peek(0).isObj() && peek(0).asObjUnsafe()->isString() && peek(1).isObj() && peek(1).asObjUnsafe()->isString()) {
+					auto b = pop_unsafe().asObjUnsafe()->asStringUnsafe();
+					auto a = pop_unsafe().asObjUnsafe()->asStringUnsafe();
+					auto str = string(a + b);
+					push(Value{ str });
+				} else if (peek(0).isNumber() && peek(1).isNumber()) {
+					auto b = pop_unsafe().asNumberUnsafe();
+					auto a = pop_unsafe().asNumberUnsafe();
+					push(Value{ a + b });
+				} else {
+					runtimeError("Operands must be either two numbers or two strings.");
+					return InterpretResult::RuntimeError;
 				}
-				else {
-					std::cout << "return with no values on the stack!" << std::endl;
+				break;
+			}
+			case OpCode::Subtract: ReturnIfError(binaryOperator([] (double a, double b) { return a - b; })); break;
+			case OpCode::Multiply: ReturnIfError(binaryOperator([] (double a, double b) { return a * b; })); break;
+			case OpCode::Divide: ReturnIfError(binaryOperator([] (double a, double b) { return a / b; })); break;
+			case OpCode::Equal:
+			{
+				auto b = pop_unsafe();
+				auto a = pop_unsafe();
+				push(Value{ a == b });
+				break;
+			}
+			case OpCode::Greater: ReturnIfError(binaryOperator([] (double a, double b) { return a > b; })); break;
+			case OpCode::Less: ReturnIfError(binaryOperator([] (double a, double b) { return a < b; })); break;
+			case OpCode::Return: return InterpretResult::Ok;
+			case OpCode::Drop: pop_unsafe(); break;
+			case OpCode::DefineGlobal:
+			{
+				auto str = readConstant().asObjUnsafe().get()->asStringUnsafe();
+				auto name = strings[str];
+				if (globals.contains(name)) {
+					runtimeError("Global variable %s already declared.", str.c_str());
+					return InterpretResult::RuntimeError;
 				}
-				return InterpretResult::Ok;
+				globals[name] = peek(0);
+				pop_unsafe();
+				break;
+			}
+			case OpCode::GetGlobal:
+			{
+				auto str = readConstant().asObjUnsafe().get()->asStringUnsafe();
+				auto name = strings[str];
+				if (!globals.contains(name)) {
+					runtimeError("Unknown global variable %s.", str.c_str());
+					return InterpretResult::RuntimeError;
+				}
+				push(globals[name]);
+				break;
+			}
+			case OpCode::SetGlobal:
+			{
+				auto str = readConstant().asObjUnsafe().get()->asStringUnsafe();
+				auto name = strings[str];
+				if (!globals.contains(name)) {
+					runtimeError("Cannot assign to unknown global variable %s.", str.c_str());
+					return InterpretResult::RuntimeError;
+				}
+				globals[name] = peek(0);
+				break;
+			}
+			case OpCode::Print:
+			{
+				pop_unsafe().print();
+				std::cout << std::endl;
+				break;
 			}
 
 			case OpCode::OPCODE_LEN:
-				return InterpretResult::RuntimeError;
+				return InterpretResult::CompileTimeError;
 		}
 	}
 }
 
-InterpretResult VM::interpret(std::string& source) {
+InterpretResult VM::interpret(std::string_view source) {
 	Compiler compiler{ source };
 
 	auto newChunk = compiler.compile();
@@ -65,8 +141,15 @@ InterpretResult VM::interpret(std::string& source) {
 		return InterpretResult::CompileTimeError;
 	}
 
-	chunk = &newChunk.value();
+	chunk = newChunk.value();
 	ip = 0;
 
 	return run();
+}
+
+void VM::free() {
+	if (debug_logFrees) {
+		std::cout << "Freeing " << objects.size() << " objects." << std::endl;
+	}
+	objects.clear();
 }

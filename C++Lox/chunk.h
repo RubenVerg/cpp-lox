@@ -1,17 +1,28 @@
 #pragma once
 
 #include "common.h"
-#include <cassert>
 #include "value.h"
 
 enum class OpCode : uint8_t {
 	Constant,
+	Nil,
+	True,
+	False,
+	Not,
 	Negate,
 	Add,
 	Subtract,
 	Multiply,
 	Divide,
+	Equal,
+	Less,
+	Greater,
 	Return,
+	Drop,
+	Print,
+	DefineGlobal,
+	GetGlobal,
+	SetGlobal,
 
 	OPCODE_LEN
 };
@@ -25,13 +36,13 @@ inline bool validOpCode(uint8_t byte) {
 }
 
 inline OpCode asOpCode(uint8_t byte) {
-	assert(validOpCode(byte));
+	assert(validOpCode(byte), "Casting unknown byte " << byte << " to OpCode");
 	return static_cast<OpCode>(byte);
 }
 
 struct Chunk {
 	std::vector<uint8_t> code;
-	ValueArray constants;
+	std::vector<Value> constants;
 	std::vector<int> lines;
 
 	void addInstruction(OpCode instruction, int line) {

@@ -46,6 +46,8 @@ static void runFile(std::string path) {
 	auto source = readFile(path);
 	auto result = vm.interpret(source);
 
+	vm.free();
+
 	if (result == InterpretResult::CompileTimeError) exit(65);
 	if (result == InterpretResult::RuntimeError) exit(70);
 }

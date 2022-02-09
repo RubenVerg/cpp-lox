@@ -2,32 +2,33 @@
 
 #include "common.h"
 
+struct Obj;
+
 enum class ValueType : size_t {
 	Bool,
 	Number,
 	Nil,
+	Obj,
 };
 
 struct Value {
 	private:
-	union {
-		bool _bool;
-		double _number;
-	} contents{ 0 };
+	std::variant<bool, double, std::shared_ptr<Obj>> contents;
 
 	public:
 	ValueType type;
 
 	Value() : type{ ValueType::Nil } {}
-	Value(bool boolean) : type{ ValueType::Bool } { contents._bool = boolean; }
-	Value(double number) : type{ ValueType::Number } { contents._number = number; }
+	Value(bool boolean) : type{ ValueType::Bool }, contents{ boolean } {}
+	Value(double number) : type{ ValueType::Number }, contents{ number }{}
+	Value(std::shared_ptr<Obj> ptr) : type{ ValueType::Obj }, contents{ std::move(ptr) }{}
 
-		bool isBool() {
+	bool isBool() {
 		return type == ValueType::Bool;
 	}
 
 	bool asBoolUnsafe() {
-		return contents._bool;
+		return std::get<bool>(contents);
 	}
 
 	std::optional<bool> asBool() {
@@ -40,7 +41,7 @@ struct Value {
 	}
 
 	double asNumberUnsafe() {
-		return contents._number;
+		return std::get<double>(contents);
 	}
 
 	std::optional<double> asNumber() {
@@ -48,11 +49,29 @@ struct Value {
 		return std::nullopt;
 	}
 
+	bool isObj() {
+		return type == ValueType::Obj;
+	}
+
+	std::shared_ptr<Obj> asObjUnsafe() {
+		return std::get<std::shared_ptr<Obj>>(contents);
+	}
+
+	std::optional<std::shared_ptr<Obj>> asObj() {
+		if (isObj()) return std::make_optional(asObjUnsafe());
+		return std::nullopt;
+	}
+
 	bool isNil() {
 		return type == ValueType::Nil;
 	}
+
+	bool castToBool();
+
+	std::string stringify();
+	void print() {
+		std::cout << stringify();
+	}
 };
 
-using ValueArray = std::vector<Value>;
-
-void printValue(Value value);
+bool operator==(Value a, Value b);

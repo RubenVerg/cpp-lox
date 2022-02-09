@@ -1,5 +1,7 @@
 #include "compiler.h"
+#include "object.h"
 #include "scanner.h"
+#include "vm.h"
 #include "debug.h"
 
 void Compiler::errorAt(Token& token, const std::string& message) {
@@ -31,7 +33,7 @@ void Compiler::advance() {
 void Compiler::endCompilation() {
 	emitReturn();
 	if (debug_printCode && !parser.hadError) {
-		disassembleChunk(*currentChunk, "code");
+		disassembleChunk(currentChunk, "code");
 	}
 }
 
@@ -42,12 +44,18 @@ void Compiler::parsePrecedence(Precedence precedence) {
 		error("Expected an expression.");
 		return;
 	}
-	(this->*prefixRule)();
+
+	auto canAssign = precedence <= Precedence::Assignment;
+	(this->*prefixRule)(canAssign);
 
 	while (precedence <= rule(parser.current.type).precedence) {
 		advance();
 		auto infixRule = rule(parser.previous.type).infix;
-		(this->*infixRule)();
+		(this->*infixRule)(canAssign);
+	}
+
+	if (canAssign && match(TokenType::Equal)) {
+		error("Invalid assignment target.");
 	}
 }
 
@@ -55,100 +63,175 @@ void Compiler::expression() {
 	parsePrecedence(Precedence::Assignment);
 }
 
-void Compiler::number() {
+void Compiler::number(bool canAssign) {
 	auto value = read_cast<double>(parser.previous.text);
 	emitConstant(value);
 }
 
-void Compiler::grouping() {
+void Compiler::string(bool canAssign) {
+	auto value = parser.previous.text.substr(1, parser.previous.text.size() - 2);
+	// lives forever, I think.
+	auto string = std::make_shared<ObjString>(value);
+	emitConstant(Value{ string });
+}
+
+void Compiler::grouping(bool canAssign) {
 	expression();
 	consume(TokenType::RightParen, "Expected ')' after expression.");
 }
 
-void Compiler::unary() {
+void Compiler::unary(bool canAssign) {
 	auto operatorType = parser.previous.type;
 
 	parsePrecedence(Precedence::Unary);
 
 	switch (operatorType) {
+		case TokenType::Bang: emitOpCode(OpCode::Not); break;
 		case TokenType::Minus: emitOpCode(OpCode::Negate); break;
 		default:
-			assert(false);
+			unreachable();
 	}
 }
 
-void Compiler::binary() {
+void Compiler::binary(bool canAssign) {
 	auto operatorType = parser.previous.type;
 	auto rule = Compiler::rule(operatorType);
 
 	parsePrecedence(nextPrecedence(rule.precedence));
 
 	switch (operatorType) {
+		case TokenType::BangEqual: emitOpCode(OpCode::Equal); emitOpCode(OpCode::Not); break;
+		case TokenType::EqualEqual: emitOpCode(OpCode::Equal); break;
+		case TokenType::Greater: emitOpCode(OpCode::Greater); break;
+		case TokenType::GreaterEqual: emitOpCode(OpCode::Less); emitOpCode(OpCode::Not); break;
+		case TokenType::Less: emitOpCode(OpCode::Less); break;
+		case TokenType::LessEqual: emitOpCode(OpCode::Greater); emitOpCode(OpCode::Not); break;
 		case TokenType::Plus:  emitOpCode(OpCode::Add); break;
 		case TokenType::Minus: emitOpCode(OpCode::Subtract); break;
 		case TokenType::Star:  emitOpCode(OpCode::Multiply); break;
 		case TokenType::Slash: emitOpCode(OpCode::Divide); break;
 		default:
-			assert(false);
+			unreachable();
 	}
 }
 
-std::unordered_map<TokenType, ParseRule> Compiler::rules{
-	{TokenType::LeftParen,    ParseRule(&Compiler::grouping, nullptr,           Precedence::None)},
-	{TokenType::RightParen,   ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::LeftBrace,    ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::RightBrace,   ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Comma,        ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Dot,          ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Minus,        ParseRule(&Compiler::unary,    &Compiler::binary, Precedence::Sum)},
-	{TokenType::Plus,         ParseRule(nullptr,             &Compiler::binary, Precedence::Sum)},
-	{TokenType::Slash,        ParseRule(nullptr,             &Compiler::binary, Precedence::Product)},
-	{TokenType::Star,         ParseRule(nullptr,             &Compiler::binary, Precedence::Product)},
-	{TokenType::Semicolon,    ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Bang,         ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::BangEqual,    ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Equal,        ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::EqualEqual,   ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Greater,      ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::GreaterEqual, ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Less,         ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::LessEqual,    ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Identifier,   ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::String,       ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Number,       ParseRule(&Compiler::number,   nullptr,           Precedence::None)},
-	{TokenType::And,          ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Or,           ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Class,        ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::If,           ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Else,         ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::For,          ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::While,        ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Fun,          ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::False,        ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::True,         ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Nil,          ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Print,        ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Return,       ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::This,         ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Super,        ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Var,          ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::Error,        ParseRule(nullptr,             nullptr,           Precedence::None)},
-	{TokenType::EOF,          ParseRule(nullptr,             nullptr,           Precedence::None)},
-};
+void Compiler::literal(bool canAssign) {
+	switch (parser.previous.type) {
+		case TokenType::False: emitOpCode(OpCode::False); break;
+		case TokenType::True: emitOpCode(OpCode::True); break;
+		case TokenType::Nil: emitOpCode(OpCode::Nil); break;
+		default:
+			unreachable();
+	}
+}
+
+void Compiler::variable(bool canAssign) {
+	namedVariable(parser.previous, canAssign);
+}
+
+void Compiler::namedVariable(Token& name, bool canAssign) {
+	auto constant = identifierConstant(name);
+	if (canAssign && match(TokenType::Equal)) {
+		expression();
+		emitOpCodeAndByte(OpCode::SetGlobal, constant);
+	} else {
+		emitOpCodeAndByte(OpCode::GetGlobal, constant);
+	}
+}
+
+void Compiler::synchronize() {
+	parser.panicMode = false;
+	while (parser.current.type != TokenType::EOF) {
+		if (parser.previous.type == TokenType::Semicolon) return;
+		switch (parser.current.type) {
+			case TokenType::Class:
+			case TokenType::Fun:
+			case TokenType::Var:
+			case TokenType::For:
+			case TokenType::While:
+			case TokenType::If:
+			case TokenType::Print:
+			case TokenType::Return:
+				return;
+			default:
+				advance();
+		}
+	}
+}
+
+void Compiler::varDeclaration() {
+	auto global = parseVariable("Expected variable name.");
+
+	if (match(TokenType::Equal)) {
+		expression();
+	} else {
+		emitOpCode(OpCode::Nil);
+	}
+
+	consume(TokenType::Semicolon, "Expected ';' after variable declaration.");
+
+	defineVariable(global);
+}
+
+uint8_t Compiler::parseVariable(const std::string& message) {
+	consume(TokenType::Identifier, message);
+	return identifierConstant(parser.previous);
+}
+
+uint8_t Compiler::identifierConstant(Token& name) {
+	auto string = std::make_shared<ObjString>(name.text);
+	return makeConstant(Value{ string });
+}
+
+void Compiler::defineVariable(uint8_t global) {
+	emitOpCodeAndByte(OpCode::DefineGlobal, global);
+}
+
+void Compiler::declaration() {
+	if (match(TokenType::Var)) {
+		varDeclaration();
+	} else {
+		statement();
+	}
+
+	if (parser.panicMode) synchronize();
+}
+
+void Compiler::statement() {
+	if (match(TokenType::Print)) {
+		printStatement();
+	} else {
+		expressionStatement();
+	}
+}
+
+void Compiler::printStatement() {
+	expression();
+	consume(TokenType::Semicolon, "Expected ';' after value.");
+	emitOpCode(OpCode::Print);
+}
+
+void Compiler::expressionStatement() {
+	expression();
+	consume(TokenType::Semicolon, "Expected ';' after expression.");
+	emitOpCode(OpCode::Drop);
+}
 
 std::optional<Chunk> Compiler::compile() {
 	Chunk chunk{};
-	currentChunk = &chunk;
+	currentChunk = chunk;
 
 	advance();
-	expression();
-	consume(TokenType::EOF, "Expected end of expression.");
+
+	while (!match(TokenType::EOF)) {
+		declaration();
+	}
 
 	endCompilation();
 
 	if (parser.hadError) {
 		return std::nullopt;
 	} else {
-		return std::make_optional(chunk);
+		return std::make_optional(currentChunk);
 	}
 }

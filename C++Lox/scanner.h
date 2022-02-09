@@ -26,28 +26,28 @@ struct Token {
 	std::string text;
 	int line;
 
-	Token(TokenType t, std::string& s, int l) : type{ t }, text{ s }, line{ l } {}
-	Token(TokenType t, const std::string& s, int l) : type{ t }, text{ s }, line{ l } {}
+	Token(TokenType t, std::string_view s, int l) : type{ t }, text{ s }, line{ l } {}
 	Token(Scanner& scanner, TokenType t);
 };
 
 struct Scanner {
-	std::string str;
+	std::string_view str;
 	size_t start = 0;
 	size_t current = 0;
 	int line = 1;
 
-	Scanner(std::string& source) : str{ source } { }
+	Scanner(std::string_view source) : str{ source } { }
 
 	Token scanToken();
 
 	private:
 	bool isAtEnd() {
+		// if ==, in C it'd be \0
 		return current >= str.size();
 	}
 
 	Token makeToken(TokenType type) {
-		return Token(type, str.substr(start, current - start), line);
+		return Token(type, str.substr(std::min(start, str.size()), current - start), line);
 	}
 
 	Token errorToken(std::string message) {
@@ -55,6 +55,10 @@ struct Scanner {
 	}
 
 	char advance() {
+		if (current >= str.size()) {
+			current++;
+			return '\0';
+		}
 		return str[current++];
 	}
 
@@ -66,6 +70,7 @@ struct Scanner {
 	}
 
 	char peek() {
+		if (current >= str.size()) return '\0';
 		return str[current];
 	}
 
@@ -81,6 +86,7 @@ struct Scanner {
 
 	char peekNext() {
 		if (isAtEnd()) return '\0';
+		if (current == str.size()) return '\0';
 		return str[current + 1];
 	}
 

@@ -4,6 +4,8 @@
 #include "chunk.h"
 #include "scanner.h"
 
+struct VM;
+
 struct Parser {
 	Token current{ TokenType::Error, "", -1 };
 	Token previous{ TokenType::Error, "", -1 };
@@ -11,7 +13,7 @@ struct Parser {
 	bool panicMode{ false };
 };
 
-enum class Precedence : int {
+enum class Precedence : uint8_t {
 	None,
 	Assignment, // =
 	Or,         // or
@@ -33,7 +35,7 @@ inline bool validPrecedence(int precedence) {
 
 inline Precedence nextPrecedence(Precedence precedence) {
 	auto i = static_cast<int>(precedence) + 1;
-	assert(validPrecedence(i));
+	assert(validPrecedence(i), "nextPrecedence called on top precedence");
 	return static_cast<Precedence>(i);
 }
 
@@ -43,7 +45,7 @@ inline std::weak_ordering operator<=>(Precedence a, Precedence b) {
 
 struct Compiler;
 
-typedef void (Compiler::* ParseFn)();
+using ParseFn = void (Compiler::*)(bool canAssign);
 
 struct ParseRule {
 	ParseFn prefix;
@@ -57,10 +59,10 @@ struct ParseRule {
 };
 
 struct Compiler {
-	std::string& source;
+	std::string_view source;
 	Scanner scanner{ source };
 	Parser parser{};
-	Chunk* currentChunk = nullptr;
+	Chunk currentChunk;
 
 	std::optional<Chunk> compile();
 
@@ -78,7 +80,7 @@ struct Compiler {
 	void advance();
 
 	void emitByte(uint8_t byte) {
-		currentChunk->addByte(byte, parser.previous.line);
+		currentChunk.addByte(byte, parser.previous.line);
 	}
 
 	void emitOpCodeAndByte(OpCode code, uint8_t byte) {
@@ -110,7 +112,7 @@ struct Compiler {
 	}
 
 	uint8_t makeConstant(Value value) {
-		auto constant = currentChunk->addConstant(value);
+		auto constant = currentChunk.addConstant(value);
 		if (constant > std::numeric_limits<uint8_t>::max()) {
 			error("Too many constants in one chunk.");
 			return 0;
@@ -122,17 +124,49 @@ struct Compiler {
 		emitOpCodeAndByte(OpCode::Constant, makeConstant(value));
 	}
 
+	bool check(TokenType type) {
+		return parser.current.type == type;
+	}
+
+	bool match(TokenType type) {
+		if (!check(type)) return false;
+		advance();
+		return true;
+	}
+
 	void parsePrecedence(Precedence precedence);
 
 	void expression();
 
-	void number();
+	void number(bool canAssign);
 
-	void grouping();
+	void string(bool canAssign);
 
-	void unary();
+	void grouping(bool canAssign);
 
-	void binary();
+	void unary(bool canAssign);
+
+	void binary(bool canAssign);
+
+	void literal(bool canAssign);
+
+	void variable(bool canAssign);
+	void namedVariable(Token& name, bool canAssign);
+
+	void printStatement();
+
+	void expressionStatement();
+
+	void statement();
+
+	void varDeclaration();
+	uint8_t parseVariable(const std::string& message);
+	uint8_t identifierConstant(Token& name);
+	void defineVariable(uint8_t global);
+
+	void declaration();
+
+	void synchronize();
 
 	static std::unordered_map<TokenType, ParseRule> rules;
 

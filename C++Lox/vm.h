@@ -2,6 +2,10 @@
 
 #include "common.h"
 #include "chunk.h"
+#include "object.h"
+
+struct Obj;
+struct ObjString;
 
 enum class InterpretResult {
 	Ok,
@@ -10,11 +14,25 @@ enum class InterpretResult {
 };
 
 struct VM {
-	Chunk* chunk = nullptr;
-	size_t ip = 0;
+	Chunk chunk;
+	size_t ip{ 0 };
 	std::vector<Value> stack{};
+	std::vector<std::shared_ptr<Obj>> objects{};
+	std::unordered_map<std::string, std::shared_ptr<ObjString>> strings{};
+	std::unordered_map<std::shared_ptr<ObjString>, Value> globals{};
 
-	InterpretResult interpret(std::string& source);
+	std::shared_ptr<ObjString> string(std::string str) {
+		if (strings.contains(str)) {
+			return strings[str];
+		} else {
+			auto string = std::make_shared<ObjString>(str);
+			objects.push_back(std::static_pointer_cast<Obj>(string));
+			strings[str] = string;
+			return string;
+		}
+	}
+
+	InterpretResult interpret(std::string_view source);
 
 	void push(Value value) {
 		stack.push_back(value);
@@ -39,9 +57,11 @@ struct VM {
 		return stack[stack.size() - 1 - distance];
 	}
 
+	void free();
+
 	private:
 	uint8_t readByte() {
-		return chunk->code[ip++];
+		return chunk.code[ip++];
 	}
 
 	OpCode readOpCode() {
@@ -49,7 +69,15 @@ struct VM {
 	}
 
 	Value readConstant() {
-		return chunk->constants[readByte()];
+		auto constant = chunk.constants[readByte()];
+		if (constant.isObj()) {
+			if (constant.asObjUnsafe().get()->isString()) {
+				return Value{ string(constant.asObjUnsafe().get()->asStringUnsafe()) };
+			} else {
+				objects.push_back(constant.asObjUnsafe());
+			};
+		}
+		return constant;
 	}
 
 	template <typename F>
@@ -60,7 +88,7 @@ struct VM {
 			runtimeError("Operands must be numbers.");
 			return InterpretResult::RuntimeError;
 		}
-		push(f(a.value(), b.value()));
+		push(Value{ f(a.value(), b.value()) });
 		return InterpretResult::Ok;
 	}
 
@@ -72,7 +100,7 @@ struct VM {
 		va_end(args);
 		std::cerr << std::endl;
 
-		std::cerr << "[ line " << chunk->lines[ip] << "] in script" << std::endl;
+		std::cerr << "[line " << chunk.lines[ip] << "] in script" << std::endl;
 		stack.clear();
 	}
 
