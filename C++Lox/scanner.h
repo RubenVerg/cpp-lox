@@ -41,78 +41,25 @@ struct Scanner {
 	Token scanToken();
 
 	private:
-	bool isAtEnd() {
-		// if ==, in C it'd be \0
-		return current >= str.size();
-	}
+	bool isAtEnd();
 
-	Token makeToken(TokenType type) {
-		return Token(type, str.substr(std::min(start, str.size()), current - start), line);
-	}
+	Token makeToken(TokenType type);
 
-	Token errorToken(std::string message) {
-		return Token(TokenType::Error, message, line);
-	}
+	Token errorToken(std::string message);
 
-	char advance() {
-		if (current >= str.size()) {
-			current++;
-			return '\0';
-		}
-		return str[current++];
-	}
+	char advance();
 
-	bool match(char expected) {
-		if (isAtEnd()) return false;
-		if (str[current] != expected) return false;
-		current++;
-		return true;
-	}
+	bool match(char expected);
 
-	char peek() {
-		if (current >= str.size()) return '\0';
-		return str[current];
-	}
+	char peek();
+	char peekNext();
 
 	Token string();
 	Token number();
 	Token identifier();
 
 	TokenType identifierType();
-	TokenType checkKeyword(size_t sstart, const std::string& rest, TokenType type) {
-		if (current - start == sstart + rest.size() && str.substr(start + sstart, rest.size()) == rest) return type;
-		return TokenType::Identifier;
-	}
+	TokenType checkKeyword(size_t sstart, const std::string& rest, TokenType type);
 
-	char peekNext() {
-		if (isAtEnd()) return '\0';
-		if (current == str.size()) return '\0';
-		return str[current + 1];
-	}
-
-	void skipWhitespace() {
-		while (true) {
-			auto c = peek();
-			switch (c) {
-				case ' ':
-				case '\r':
-				case '\t':
-					advance();
-					break;
-				case '\n':
-					line++;
-					advance();
-					break;
-				case '/':
-					if (peekNext() == '/') {
-						while (peek() != '\n' && !isAtEnd()) advance();
-					} else {
-						return;
-					}
-					break;
-				default:
-					return;
-			}
-		}
-	}
+	void skipWhitespace();
 };

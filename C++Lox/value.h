@@ -23,55 +23,24 @@ struct Value {
 	Value(double number) : type{ ValueType::Number }, contents{ number }{}
 	Value(std::shared_ptr<Obj> ptr) : type{ ValueType::Obj }, contents{ std::move(ptr) }{}
 
-	bool isBool() {
-		return type == ValueType::Bool;
-	}
+	bool isBool();
+	bool asBoolUnsafe();
+	std::optional<bool> asBool();
 
-	bool asBoolUnsafe() {
-		return std::get<bool>(contents);
-	}
+	bool isNumber();
+	double asNumberUnsafe();
+	std::optional<double> asNumber();
 
-	std::optional<bool> asBool() {
-		if (isBool()) return std::make_optional(asBoolUnsafe());
-		return std::nullopt;
-	}
+	bool isObj();
+	std::shared_ptr<Obj> asObjUnsafe();
+	std::optional<std::shared_ptr<Obj>> asObj();
 
-	bool isNumber() {
-		return type == ValueType::Number;
-	}
-
-	double asNumberUnsafe() {
-		return std::get<double>(contents);
-	}
-
-	std::optional<double> asNumber() {
-		if (isNumber()) return std::make_optional(asNumberUnsafe());
-		return std::nullopt;
-	}
-
-	bool isObj() {
-		return type == ValueType::Obj;
-	}
-
-	std::shared_ptr<Obj> asObjUnsafe() {
-		return std::get<std::shared_ptr<Obj>>(contents);
-	}
-
-	std::optional<std::shared_ptr<Obj>> asObj() {
-		if (isObj()) return std::make_optional(asObjUnsafe());
-		return std::nullopt;
-	}
-
-	bool isNil() {
-		return type == ValueType::Nil;
-	}
+	bool isNil();
 
 	bool castToBool();
 
 	std::string stringify();
-	void print() {
-		std::cout << stringify();
-	}
+	void print();
 };
 
 bool operator==(Value a, Value b);

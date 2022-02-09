@@ -47,35 +47,15 @@ constexpr auto debug_logFrees = false;
 
 using namespace std::literals;
 
-inline std::vector<std::string> parseArgs(int argc, const char* argv[]) {
-	std::vector<std::string> out{};
-	for (size_t i = 1; i < argc; i++) {
-		std::string str{ argv[i] };
-		out.push_back(str);
-	}
-	return out;
-}
+std::vector<std::string> parseArgs(int argc, const char* argv[]);
 
-inline std::string readFile(const std::string& path) {
-	std::ifstream input_file{ path };
-	if (!input_file.is_open()) {
-		std::cerr << "Could not open file " << path << "." << std::endl;
-		exit(74);
-	}
-	return std::string(std::istreambuf_iterator<char>(input_file), std::istreambuf_iterator<char>());
-}
+std::string readFile(const std::string & path);
 
-inline bool isDigit(char c) {
-	return '0' <= c && c <= '9';
-}
+bool isDigit(char c);
 
-inline bool isAlpha(char c) {
-	return c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
-}
+bool isAlpha(char c);
 
-inline bool isAlphaNumeric(char c) {
-	return isAlpha(c) || isDigit(c);
-}
+bool isAlphaNumeric(char c);
 
 template<typename To, typename From> inline To read_cast(const From& input) {
 	std::stringstream stream;

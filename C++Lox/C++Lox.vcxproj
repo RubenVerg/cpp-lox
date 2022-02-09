@@ -147,9 +147,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="chunk.cpp" />
+    <ClCompile Include="common.cpp" />
     <ClCompile Include="compiler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="debug.cpp" />
+    <ClCompile Include="object.cpp" />
     <ClCompile Include="rules.cpp" />
     <ClCompile Include="scanner.cpp" />
     <ClCompile Include="vm.cpp" />

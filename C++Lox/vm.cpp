@@ -11,6 +11,18 @@
 	}\
 } while (false)
 
+void VM::runtimeError(const std::string & format, ...) {
+	auto str = format.c_str();
+	va_list args;
+	va_start(args, str);
+	vfprintf(stderr, str, args);
+	va_end(args);
+	std::cerr << std::endl;
+
+	std::cerr << "[line " << chunk.lines[ip] << "] in script" << std::endl;
+	stack.clear();
+}
+
 InterpretResult VM::run() {
 	while (true) {
 		if (debug_traceExecution) {
@@ -132,6 +144,17 @@ InterpretResult VM::run() {
 	}
 }
 
+std::shared_ptr<ObjString> VM::string(std::string str) {
+	if (strings.contains(str)) {
+		return strings[str];
+	} else {
+		auto string = std::make_shared<ObjString>(str);
+		objects.push_back(std::static_pointer_cast<Obj>(string));
+		strings[str] = string;
+		return string;
+	}
+}
+
 InterpretResult VM::interpret(std::string_view source) {
 	Compiler compiler{ source };
 
@@ -147,9 +170,51 @@ InterpretResult VM::interpret(std::string_view source) {
 	return run();
 }
 
+void VM::push(Value value) {
+	stack.push_back(value);
+}
+
+std::optional<Value> VM::pop() {
+	if (stack.empty()) {
+		return std::nullopt;
+	} else {
+		auto result = stack.back();
+		stack.pop_back();
+		return std::make_optional(result);
+	}
+}
+
+Value VM::pop_unsafe() {
+	return pop().value();
+}
+
+Value VM::peek(size_t distance) {
+	return stack[stack.size() - 1 - distance];
+}
+
 void VM::free() {
 	if (debug_logFrees) {
 		std::cout << "Freeing " << objects.size() << " objects." << std::endl;
 	}
 	objects.clear();
+}
+
+uint8_t VM::readByte() {
+	return chunk.code[ip++];
+}
+
+OpCode VM::readOpCode() {
+	return asOpCode(readByte());
+}
+
+Value VM::readConstant() {
+	auto constant = chunk.constants[readByte()];
+	if (constant.isObj()) {
+		if (constant.asObjUnsafe().get()->isString()) {
+			return Value{ string(constant.asObjUnsafe().get()->asStringUnsafe()) };
+		} else {
+			objects.push_back(constant.asObjUnsafe());
+		};
+	}
+	return constant;
 }

@@ -7,22 +7,13 @@ enum class ObjType {
 	String,
 };
 
-struct ObjString;
-
 struct Obj {
 	ObjType type;
 
-	bool isString() {
-		return type == ObjType::String;
-	}
+	bool isString();
 
-	virtual std::string asStringUnsafe() {
-		throw std::runtime_error("Called asStringUnsafe on a non-string Obj");
-	}
-	std::optional<std::string> asString() {
-		if (isString()) return asStringUnsafe();
-		return std::nullopt;
-	}
+	virtual std::string asStringUnsafe();
+	std::optional<std::string> asString();
 
 	std::string stringify();
 
@@ -34,19 +25,7 @@ bool operator==(Obj& a, Obj& b);
 struct ObjString : Obj {
 	std::string str;
 
-	std::string asStringUnsafe() override {
-		return str;
-	}
+	std::string asStringUnsafe() override;
 
 	ObjString(std::string string) : Obj{ ObjType::String }, str{ string } {}
 };
-
-inline std::string Obj::stringify() {
-	switch (type) {
-		case ObjType::String:
-			return asStringUnsafe();
-		default:
-			assert(false, "Cannot stringify unknown object type");
-			return "";
-	}
-}

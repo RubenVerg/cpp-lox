@@ -62,6 +62,43 @@ TokenType Scanner::identifierType() {
 	}
 }
 
+TokenType Scanner::checkKeyword(size_t sstart, const std::string& rest, TokenType type) {
+	if (current - start == sstart + rest.size() && str.substr(start + sstart, rest.size()) == rest) return type;
+	return TokenType::Identifier;
+}
+
+void Scanner::skipWhitespace() {
+	while (true) {
+		auto c = peek();
+		switch (c) {
+			case ' ':
+			case '\r':
+			case '\t':
+				advance();
+				break;
+			case '\n':
+				line++;
+				advance();
+				break;
+			case '/':
+				if (peekNext() == '/') {
+					while (peek() != '\n' && !isAtEnd()) advance();
+				} else {
+					return;
+				}
+				break;
+			default:
+				return;
+		}
+	}
+}
+
+char Scanner::peekNext() {
+	if (isAtEnd()) return '\0';
+	if (current == str.size()) return '\0';
+	return str[current + 1];
+}
+
 Token Scanner::identifier() {
 	while (isAlphaNumeric(peek())) advance();
 	return makeToken(identifierType());
@@ -99,4 +136,37 @@ Token Scanner::scanToken() {
 	}
 
 	return errorToken("Unexpected character.");
+}
+
+bool Scanner::isAtEnd() {
+	// if ==, in C it'd be \0
+	return current >= str.size();
+}
+
+Token Scanner::makeToken(TokenType type) {
+	return Token(type, str.substr(std::min(start, str.size()), current - start), line);
+}
+
+Token Scanner::errorToken(std::string message) {
+	return Token(TokenType::Error, message, line);
+}
+
+char Scanner::advance() {
+	if (current >= str.size()) {
+		current++;
+		return '\0';
+	}
+	return str[current++];
+}
+
+bool Scanner::match(char expected) {
+	if (isAtEnd()) return false;
+	if (str[current] != expected) return false;
+	current++;
+	return true;
+}
+
+char Scanner::peek() {
+	if (current >= str.size()) return '\0';
+	return str[current];
 }

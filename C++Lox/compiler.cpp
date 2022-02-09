@@ -4,21 +4,6 @@
 #include "vm.h"
 #include "debug.h"
 
-void Compiler::errorAt(Token& token, const std::string& message) {
-	if (parser.panicMode) return;
-
-	parser.panicMode = true;
-
-	std::cerr << "[line " << token.line << "] Error";
-	if (token.type == TokenType::EOF) {
-		std::cerr << " at end";
-	} else if (token.type == TokenType::Error) {} else {
-		fprintf(stderr, " at '%.*s'", int(token.text.size()), token.text.c_str());
-	}
-	std::cerr << ": " << message << std::endl;
-	parser.hadError = true;
-}
-
 void Compiler::advance() {
 	parser.previous = parser.current;
 
@@ -30,11 +15,64 @@ void Compiler::advance() {
 	}
 }
 
+void Compiler::emitByte(uint8_t byte) {
+	currentChunk.addByte(byte, parser.previous.line);
+}
+
+void Compiler::emitOpCodeAndByte(OpCode code, uint8_t byte) {
+	emitOpCode(code);
+	emitByte(byte);
+}
+
+void Compiler::emitBytes(uint8_t byte1, uint8_t byte2) {
+	emitByte(byte1);
+	emitByte(byte2);
+}
+
+void Compiler::consume(TokenType type, const std::string& message) {
+	if (parser.current.type == type) {
+		advance();
+	} else {
+		errorAtCurrent(message);
+	}
+}
+
 void Compiler::endCompilation() {
 	emitReturn();
 	if (debug_printCode && !parser.hadError) {
 		disassembleChunk(currentChunk, "code");
 	}
+}
+
+void Compiler::emitOpCode(OpCode code) {
+	emitByte(asByte(code));
+}
+
+void Compiler::emitReturn() {
+	emitOpCode(OpCode::Return);
+}
+
+uint8_t Compiler::makeConstant(Value value) {
+	auto constant = currentChunk.addConstant(value);
+	if (constant > std::numeric_limits<uint8_t>::max()) {
+		error("Too many constants in one chunk.");
+		return 0;
+	}
+	return uint8_t(constant);
+}
+
+void Compiler::emitConstant(Value value) {
+	emitOpCodeAndByte(OpCode::Constant, makeConstant(value));
+}
+
+bool Compiler::check(TokenType type) {
+	return parser.current.type == type;
+}
+
+bool Compiler::match(TokenType type) {
+	if (!check(type)) return false;
+	advance();
+	return true;
 }
 
 void Compiler::parsePrecedence(Precedence precedence) {
@@ -234,4 +272,41 @@ std::optional<Chunk> Compiler::compile() {
 	} else {
 		return std::make_optional(currentChunk);
 	}
+}
+
+void Compiler::errorAtCurrent(const std::string& message) {
+	errorAt(parser.current, message);
+}
+
+void Compiler::error(const std::string& message) {
+	errorAt(parser.previous, message);
+}
+
+void Compiler::errorAt(Token& token, const std::string& message) {
+	if (parser.panicMode) return;
+
+	parser.panicMode = true;
+
+	std::cerr << "[line " << token.line << "] Error";
+	if (token.type == TokenType::EOF) {
+		std::cerr << " at end";
+	} else if (token.type == TokenType::Error) {} else {
+		fprintf(stderr, " at '%.*s'", int(token.text.size()), token.text.c_str());
+	}
+	std::cerr << ": " << message << std::endl;
+	parser.hadError = true;
+}
+
+bool validPrecedence(int precedence) {
+	return precedence >= 0 && precedence < static_cast<int>(Precedence::PRECEDENCE_LEN);
+}
+
+Precedence nextPrecedence(Precedence precedence) {
+	auto i = static_cast<int>(precedence) + 1;
+	assert(validPrecedence(i), "nextPrecedence called on top precedence");
+	return static_cast<Precedence>(i);
+}
+
+std::weak_ordering operator<=>(Precedence a, Precedence b) {
+	return static_cast<int>(a) <=> static_cast<int>(b);
 }

@@ -43,3 +43,6 @@ std::unordered_map<TokenType, ParseRule> Compiler::rules{
 	{TokenType::EOF,          ParseRule(nullptr,             nullptr,           Precedence::None)},
 };
 
+ParseRule Compiler::rule(TokenType type) {
+	return rules.at(type);
+}

@@ -1,6 +1,49 @@
 #include "value.h"
 #include "object.h"
 
+bool Value::isBool() {
+	return type == ValueType::Bool;
+}
+
+bool Value::asBoolUnsafe() {
+	return std::get<bool>(contents);
+}
+
+std::optional<bool> Value::asBool() {
+	if (isBool()) return std::make_optional(asBoolUnsafe());
+	return std::nullopt;
+}
+
+bool Value::isNumber() {
+	return type == ValueType::Number;
+}
+
+double Value::asNumberUnsafe() {
+	return std::get<double>(contents);
+}
+
+std::optional<double> Value::asNumber() {
+	if (isNumber()) return std::make_optional(asNumberUnsafe());
+	return std::nullopt;
+}
+
+bool Value::isObj() {
+	return type == ValueType::Obj;
+}
+
+std::shared_ptr<Obj> Value::asObjUnsafe() {
+	return std::get<std::shared_ptr<Obj>>(contents);
+}
+
+std::optional<std::shared_ptr<Obj>> Value::asObj() {
+	if (isObj()) return std::make_optional(asObjUnsafe());
+	return std::nullopt;
+}
+
+bool Value::isNil() {
+	return type == ValueType::Nil;
+}
+
 bool Value::castToBool() {
 	switch (type) {
 		case ValueType::Nil:
@@ -31,6 +74,10 @@ std::string Value::stringify() {
 			unreachable();
 			return "";
 	}
+}
+
+void Value::print() {
+	std::cout << stringify();
 }
 
 bool operator==(Value a, Value b) {
