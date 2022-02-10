@@ -143,6 +143,18 @@ InterpretResult VM::run() {
 				stack[slot] = peek(0);
 				break;
 			}
+			case OpCode::ConditionalJump:
+			{
+				auto offset = readShort();
+				if (!peek(0).castToBool()) ip += offset;
+				break;
+			}
+			case OpCode::Jump:
+			{
+				auto offset = readShort();
+				ip += offset;
+				break;
+			}
 			case OpCode::Print:
 			{
 				pop_unsafe().print();
@@ -213,6 +225,11 @@ void VM::free() {
 
 uint8_t VM::readByte() {
 	return chunk.code[ip++];
+}
+
+uint16_t VM::readShort() {
+	ip += 2;
+	return static_cast<uint16_t>(chunk.code[ip - 2]) << 8 | chunk.code[ip - 1];
 }
 
 OpCode VM::readOpCode() {

@@ -37,6 +37,7 @@ struct VM {
 
 	private:
 	uint8_t readByte();
+	uint16_t readShort();
 
 	OpCode readOpCode();
 

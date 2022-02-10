@@ -41,6 +41,7 @@ constexpr auto debug_logFrees = false;
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
+#include <ios>
 #include <variant>
 
 #undef EOF

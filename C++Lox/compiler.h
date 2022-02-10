@@ -110,6 +110,10 @@ struct Compiler {
 	std::optional<size_t> resolveLocal(Token& name);
 
 	void printStatement();
+
+	void ifStatement();
+	size_t emitJump(OpCode code);
+	void patchJump(size_t jump);
 	void expressionStatement();
 	void block();
 

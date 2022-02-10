@@ -313,6 +313,8 @@ void Compiler::declaration() {
 void Compiler::statement() {
 	if (match(TokenType::Print)) {
 		printStatement();
+	} else if (match(TokenType::If)) {
+		ifStatement();
 	} else if (match(TokenType::LeftBrace)) {
 		beginScope();
 		block();
@@ -326,6 +328,40 @@ void Compiler::printStatement() {
 	expression();
 	consume(TokenType::Semicolon, "Expected ';' after value.");
 	emitOpCode(OpCode::Print);
+}
+
+void Compiler::ifStatement() {
+	consume(TokenType::LeftParen, "Expected '(' after 'if'.");
+	expression();
+	consume(TokenType::RightParen, "Expected ')' after condition.");
+
+	auto trueJump = emitJump(OpCode::ConditionalJump);
+	emitOpCode(OpCode::Drop);
+	statement();
+
+	auto falseJump = emitJump(OpCode::Jump);
+
+	patchJump(trueJump);
+	emitOpCode(OpCode::Drop);
+
+	if (match(TokenType::Else)) statement();
+	patchJump(falseJump);
+}
+
+size_t Compiler::emitJump(OpCode code) {
+	emitOpCode(code);
+	emitBytes(0xff, 0xff);
+	return currentChunk.code.size() - 2;
+}
+
+void Compiler::patchJump(size_t index) {
+	auto jump = currentChunk.code.size() - index - 2;
+
+	if (jump > std::numeric_limits<uint16_t>::max()) {
+		error("Too long of a jump.");
+	}
+	currentChunk.code[index] = static_cast<uint8_t>(jump >> 8);
+	currentChunk.code[index + 1] = static_cast<uint8_t>(jump);
 }
 
 void Compiler::expressionStatement() {

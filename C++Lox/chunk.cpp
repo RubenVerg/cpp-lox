@@ -9,7 +9,7 @@ bool validOpCode(uint8_t byte) {
 }
 
 OpCode asOpCode(uint8_t byte) {
-	assert(validOpCode(byte), "Casting unknown byte " << byte << " to OpCode");
+	assert(validOpCode(byte), "Casting unknown byte " << std::hex << static_cast<int>(byte) << " to OpCode");
 	return static_cast<OpCode>(byte);
 }
 

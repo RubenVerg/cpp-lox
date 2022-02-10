@@ -27,6 +27,14 @@ static size_t byteInstruction(std::string name, Chunk& chunk, size_t index) {
 	return index + 2;
 }
 
+static size_t jumpInstruction(std::string name, bool backwards, Chunk& chunk, size_t index) {
+	auto jump = static_cast<size_t>(chunk.code[index + 1]) << 8;
+	jump |= chunk.code[index + 2];
+	printf("%-16s %4zd -> %zd", name.c_str(), index, index + 3 + (backwards ? -1 : 1) * jump);
+	std::cout << std::endl;
+	return index + 3;
+}
+
 size_t disassembleInstruction(Chunk& chunk, size_t index) {
 	printf("%04d ", int(index));
 
@@ -37,7 +45,7 @@ size_t disassembleInstruction(Chunk& chunk, size_t index) {
 	}
 
 	auto instruction = chunk.code[index];
-	if (!validOpCode(instruction)) {
+	if (static_cast<uint8_t>(OpCode::OPCODE_LEN) <= instruction) {
 		fprintf(stderr, "Unknown opcode %x", instruction);
 		std::cerr << std::endl;
 		return index + 1;
@@ -85,6 +93,10 @@ size_t disassembleInstruction(Chunk& chunk, size_t index) {
 				return byteInstruction("get local", chunk, index);
 			case OpCode::SetLocal:
 				return byteInstruction("set local", chunk, index);
+			case OpCode::ConditionalJump:
+				return jumpInstruction("conditional jump", false, chunk, index);
+			case OpCode::Jump:
+				return jumpInstruction("jump", false, chunk, index);
 			default:
 				unreachable();
 				return 0;

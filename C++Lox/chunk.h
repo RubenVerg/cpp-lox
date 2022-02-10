@@ -25,6 +25,8 @@ enum class OpCode : uint8_t {
 	SetGlobal,
 	GetLocal,
 	SetLocal,
+	ConditionalJump, // jump if false
+	Jump,
 
 	OPCODE_LEN
 };
