@@ -337,6 +337,8 @@ void Compiler::statement() {
 		ifStatement();
 	} else if (match(TokenType::While)) {
 		whileStatement();
+	} else if (match(TokenType::For)) {
+		forStatement();
 	} else if (match(TokenType::LeftBrace)) {
 		beginScope();
 		block();
@@ -383,6 +385,51 @@ void Compiler::whileStatement() {
 
 	patchJump(exitJump);
 	emitOpCode(OpCode::Drop);
+}
+
+void Compiler::forStatement() {
+	beginScope();
+
+	consume(TokenType::LeftParen, "Expected '(' after 'for'.");
+	if (match(TokenType::Semicolon)) {
+
+	} else if (match(TokenType::Var)) {
+		varDeclaration();
+	} else {
+		expressionStatement();
+	}
+
+	auto loopStart = currentChunk.code.size();
+	std::optional<size_t> exitJump{};
+	if (!match(TokenType::Semicolon)) {
+		expression();
+		consume(TokenType::Semicolon, "Expected ';' after for condition");
+
+		exitJump = emitJump(OpCode::ConditionalJump);
+		emitOpCode(OpCode::Drop);
+	}
+
+	if (!match(TokenType::RightParen)) {
+		auto bodyJump = emitJump(OpCode::Jump);
+		auto incrementStart = currentChunk.code.size();
+		expression();
+		emitOpCode(OpCode::Drop);
+		consume(TokenType::RightParen, "Expected ')' after for clauses");
+
+		emitLoop(loopStart);
+		loopStart = incrementStart;
+		patchJump(bodyJump);
+	}
+
+	statement();
+	emitLoop(loopStart);
+
+	if (exitJump) {
+		patchJump(exitJump.value());
+		emitOpCode(OpCode::Drop);
+	}
+
+	endScope();
 }
 
 size_t Compiler::emitJump(OpCode code) {

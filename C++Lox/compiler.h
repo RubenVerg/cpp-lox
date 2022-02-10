@@ -123,6 +123,8 @@ struct Compiler {
 	
 	void whileStatement();
 
+	void forStatement();
+
 	void expressionStatement();
 	void block();
 
