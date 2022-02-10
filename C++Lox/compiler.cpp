@@ -176,6 +176,26 @@ void Compiler::literal(bool) {
 	}
 }
 
+void Compiler::andExpr(bool) {
+	auto endJump = emitJump(OpCode::ConditionalJump);
+
+	emitOpCode(OpCode::Drop);
+	parsePrecedence(Precedence::And);
+
+	patchJump(endJump);
+}
+
+void Compiler::orExpr(bool) {
+	auto elseJump = emitJump(OpCode::ConditionalJump);
+	auto endJump = emitJump(OpCode::Jump);
+
+	patchJump(elseJump);
+	emitOpCode(OpCode::Drop);
+
+	parsePrecedence(Precedence::Or);
+	patchJump(endJump);
+}
+
 void Compiler::variable(bool canAssign) {
 	namedVariable(parser.previous, canAssign);
 }

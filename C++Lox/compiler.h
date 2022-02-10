@@ -103,6 +103,9 @@ struct Compiler {
 	void binary(bool canAssign);
 	void literal(bool canAssign);
 
+	void andExpr(bool canAssign);
+	void orExpr(bool canAssign);
+
 	void variable(bool canAssign);
 	void namedVariable(Token& name, bool canAssign);
 	void declareVariable();
