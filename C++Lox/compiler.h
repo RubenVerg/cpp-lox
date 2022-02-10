@@ -96,6 +96,11 @@ struct Compiler {
 
 	void expression();
 
+	size_t emitJump(OpCode code);
+	void patchJump(size_t jump);
+
+	void emitLoop(size_t start);
+
 	void number(bool canAssign);
 	void string(bool canAssign);
 	void grouping(bool canAssign);
@@ -115,8 +120,9 @@ struct Compiler {
 	void printStatement();
 
 	void ifStatement();
-	size_t emitJump(OpCode code);
-	void patchJump(size_t jump);
+	
+	void whileStatement();
+
 	void expressionStatement();
 	void block();
 

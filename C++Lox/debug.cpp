@@ -94,9 +94,11 @@ size_t disassembleInstruction(Chunk& chunk, size_t index) {
 			case OpCode::SetLocal:
 				return byteInstruction("set local", chunk, index);
 			case OpCode::ConditionalJump:
-				return jumpInstruction("conditional jump", false, chunk, index);
+				return jumpInstruction("jump if false", false, chunk, index);
 			case OpCode::Jump:
 				return jumpInstruction("jump", false, chunk, index);
+			case OpCode::JumpBack:
+				return jumpInstruction("jump back", true, chunk, index);
 			default:
 				unreachable();
 				return 0;

@@ -335,6 +335,8 @@ void Compiler::statement() {
 		printStatement();
 	} else if (match(TokenType::If)) {
 		ifStatement();
+	} else if (match(TokenType::While)) {
+		whileStatement();
 	} else if (match(TokenType::LeftBrace)) {
 		beginScope();
 		block();
@@ -368,6 +370,21 @@ void Compiler::ifStatement() {
 	patchJump(falseJump);
 }
 
+void Compiler::whileStatement() {
+	auto loopStart = currentChunk.code.size();
+	consume(TokenType::LeftParen, "Expected '(' after 'while'.");
+	expression();
+	consume(TokenType::RightParen, "Expected '(' after condition.");
+
+	auto exitJump = emitJump(OpCode::ConditionalJump);
+	emitOpCode(OpCode::Drop);
+	statement();
+	emitLoop(loopStart);
+
+	patchJump(exitJump);
+	emitOpCode(OpCode::Drop);
+}
+
 size_t Compiler::emitJump(OpCode code) {
 	emitOpCode(code);
 	emitBytes(0xff, 0xff);
@@ -382,6 +399,15 @@ void Compiler::patchJump(size_t index) {
 	}
 	currentChunk.code[index] = static_cast<uint8_t>(jump >> 8);
 	currentChunk.code[index + 1] = static_cast<uint8_t>(jump);
+}
+
+void Compiler::emitLoop(size_t start) {
+	emitOpCode(OpCode::JumpBack);
+
+	auto offset = currentChunk.code.size() - start + 2;
+	if (offset > std::numeric_limits<uint16_t>::max()) error("Loop body too large.");
+
+	emitBytes(static_cast<uint8_t>(offset >> 8), static_cast<uint8_t>(offset));
 }
 
 void Compiler::expressionStatement() {

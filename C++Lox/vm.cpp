@@ -155,6 +155,12 @@ InterpretResult VM::run() {
 				ip += offset;
 				break;
 			}
+			case OpCode::JumpBack:
+			{
+				auto offset = readShort();
+				ip -= offset;
+				break;
+			}
 			case OpCode::Print:
 			{
 				pop_unsafe().print();
